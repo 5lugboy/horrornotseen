@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Horror Picker — Mobile App</title>
+  <style>
+    :root{
+      --bg:#0b0b0f;--card:#14141a;--text:#f5f7ff;--muted:#a5a8b6;--accent:#16c1a0;--accent2:#7c5cff;--border:#262636
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:radial-gradient(1200px 600px at 20% -10%,rgba(124,92,255,.18),transparent),radial-gradient(1200px 700px at 120% 0,rgba(22,193,160,.14),transparent),var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+    .app{min-height:100%;display:flex;flex-direction:column}
+    header{position:sticky;top:0;z-index:10;background:rgba(11,11,15,.7);backdrop-filter:saturate(120%) blur(8px);border-bottom:1px solid var(--border);padding:12px 16px}
+    header h1{font-size:18px;margin:0}
+    header p{margin:4px 0 0;color:var(--muted);font-size:13px}
+    .stepper{display:flex;gap:6px;align-items:center;margin:6px 0 0}
+    .dot{width:8px;height:8px;border-radius:50%;background:#2b2b3a}
+    .dot.active{background:var(--accent)}
+
+    .screen{flex:1;display:flex;flex-direction:column;gap:14px;padding:16px;max-width:760px;margin:0 auto;width:100%}
+    .group{background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01));border:1px solid var(--border);border-radius:16px;padding:14px}
+    .label{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+    .options{display:grid;grid-template-columns:1fr;gap:10px}
+    @media(min-width:520px){.options{grid-template-columns:repeat(2,1fr)}}
+    @media(min-width:760px){.options{grid-template-columns:repeat(3,1fr)}}
+
+    .btn{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:48px;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--text);font-weight:600;font-size:15px;cursor:pointer;transition:transform .05s ease,border .15s ease,background .15s ease}
+    .btn:active{transform:scale(.99)}
+    .btn[data-selected="true"]{border-color:var(--accent);box-shadow:0 0 0 2px rgba(22,193,160,.15) inset}
+
+    .controls{display:flex;gap:10px;margin-top:10px}
+    .pill{border-radius:999px;border:1px solid var(--border);background:var(--card);color:var(--text);padding:10px 14px;min-height:44px;font-weight:700;font-size:14px;cursor:pointer}
+    .pill.primary{border-color:var(--accent)}
+    .pill:active{transform:translateY(1px)}
+
+    .card{background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.015));border:1px solid var(--border);border-radius:16px;padding:16px}
+    .title{font-size:18px;margin:0 0 6px;color:var(--accent)}
+    .meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+    .chip{border:1px solid var(--border);border-radius:999px;padding:6px 10px;font-size:12px;color:var(--muted)}
+
+    .fade-enter{opacity:0;transform:translateY(6px)}
+    .fade-enter.fade-enter-active{opacity:1;transform:none;transition:opacity .18s ease,transform .18s ease}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Horror Picker (Obscure Gems)</h1>
+      <p>Tap through: Subgenre → Era → Tone → Film</p>
+      <div class="stepper" aria-hidden="true">
+        <div class="dot" id="d1"></div>
+        <div class="dot" id="d2"></div>
+        <div class="dot" id="d3"></div>
+        <div class="dot" id="d4"></div>
+      </div>
+    </header>
+
+    <main class="screen" id="screen"></main>
+  </div>
+
+  <script>
+  // Original dataset (obscurer picks) — Classic/Modern → Scary/Fun/Critically Acclaimed
+  const DATA = {
+    "Body Horror": {
+      Classic: {
+        "Scary": { title: "Xtro", year: 1982, country: "UK", note: "Genuinely nightmarish E.T. inversion with gooey practicals and inexplicable dread." },
+        "Fun": { title: "Body Melt", year: 1993, country: "Australia", note: "Aussie splatstick mayhem; suburban wellness goes grotesquely off the rails." },
+        "Critically Acclaimed": { title: "Tetsuo: The Iron Man", year: 1989, country: "Japan", note: "Industrial cyber‑body nightmare; a kinetic, art‑house landmark." }
+      },
+      Modern: {
+        "Scary": { title: "Afflicted", year: 2013, country: "Canada/USA", note: "Found‑footage body transformation that gets uncomfortably intimate and inventive." },
+        "Fun": { title: "Patchwork", year: 2015, country: "USA", note: "Franken‑comedy with bite; three strangers wake up stitched together—literally." },
+        "Critically Acclaimed": { title: "Spring", year: 2014, country: "USA/Italy", note: "Romantic, sun‑drenched metamorphosis piece with real heart and mythic scale." }
+      }
+    },
+
+    "Comedy Horror": {
+      Classic: {
+        "Scary": { title: "Arachnophobia", year: 1990, country: "USA", note: "Creepy‑crawly set‑pieces wrapped in a nimble, crowd‑pleasing comedy." },
+        "Fun": { title: "House", year: 1985, country: "USA", note: "Haunted‑house hijinks with rubbery monsters and sitcom‑surreal energy." },
+        "Critically Acclaimed": { title: "The Abominable Dr. Phibes", year: 1971, country: "UK", note: "Vincent Price orchestrates revenge into a baroque, camp classic." }
+      },
+      Modern: {
+        "Scary": { title: "Housebound", year: 2014, country: "New Zealand", note: "Smart, twisty haunted‑house comedy that actually delivers the chills." },
+        "Fun": { title: "Deadstream", year: 2022, country: "USA", note: "Livestream‑gone‑wrong rollercoaster; energetic, ghoulish, and very rewatchable." },
+        "Critically Acclaimed": { title: "Sightseers", year: 2012, country: "UK", note: "Ben Wheatley’s pitch‑black holiday from hell—acerbic and unnervingly human." }
+      }
+    },
+
+    "Erotic Horror": {
+      Classic: {
+        "Scary": { title: "The Lair of the White Worm", year: 1988, country: "UK", note: "Ken Russell’s serpentine delirium—campy, kinky, and surprisingly creepy." },
+        "Fun": { title: "Vampyros Lesbos", year: 1971, country: "Spain/West Germany", note: "Psychedelic Euro‑sleaze with a killer soundtrack and hypnotic vibes." },
+        "Critically Acclaimed": { title: "Daughters of Darkness", year: 1971, country: "Belgium/France", note: "Elegant, ice‑cool vampire tale dripping with atmosphere." }
+      },
+      Modern: {
+        "Scary": { title: "Trouble Every Day", year: 2001, country: "France", note: "Claire Denis crafts a sensual cannibal nightmare—unnerving and austere." },
+        "Fun": { title: "Kiss of the Damned", year: 2012, country: "USA", note: "Sumptuous, throwback vampire romance with a mischievous streak." },
+        "Critically Acclaimed": { title: "The Untamed", year: 2016, country: "Mexico", note: "Erotic cosmic horror that merges desire, shame, and the inhuman." }
+      }
+    },
+
+    "Slasher Films": {
+      Classic: {
+        "Scary": { title: "The Mutilator (Fall Break)", year: 1984, country: "USA", note: "Beach‑house bloodbath with gnarly set‑pieces and pure 80s vibes." },
+        "Fun": { title: "Intruder", year: 1989, country: "USA", note: "After‑hours supermarket slasher—Raimi family cameos and bonkers kills." },
+        "Critically Acclaimed": { title: "Peeping Tom", year: 1960, country: "UK", note: "A chilling, ahead‑of‑its‑time study of voyeurism and violence." }
+      },
+      Modern: {
+        "Scary": { title: "Cold Prey", year: 2006, country: "Norway", note: "Icy, stripped‑down survival slasher with tight craftsmanship." },
+        "Fun": { title: "Stage Fright", year: 2014, country: "Canada", note: "Musical‑theater slasher that gleefully skews showbiz dreams." },
+        "Critically Acclaimed": { title: "Piggy", year: 2022, country: "Spain", note: "A vicious, empathetic twist on the genre with real thematic bite." }
+      }
+    },
+
+    "Splatter Films": {
+      Classic: {
+        "Scary": { title: "The Beyond", year: 1981, country: "Italy", note: "Fulci’s surreal gates‑of‑hell opus—oppressive atmosphere and gore galore." },
+        "Fun": { title: "Bad Taste", year: 1987, country: "New Zealand", note: "Peter Jackson’s homemade mayhem: elastic limbs and kiwi cheek." },
+        "Critically Acclaimed": { title: "Braindead (Dead Alive)", year: 1992, country: "New Zealand", note: "Operatic splatstick—astonishing practical effects and comic invention." }
+      },
+      Modern: {
+        "Scary": { title: "Inside (À l'intérieur)", year: 2007, country: "France", note: "New French Extremity at its sharpest—brutal and nerve‑shredding." },
+        "Fun": { title: "Tokyo Gore Police", year: 2008, country: "Japan", note: "Anything‑goes cyberpunk splatter circus—outrageous and inventive." },
+        "Critically Acclaimed": { title: "The Sadness", year: 2021, country: "Taiwan", note: "Notorious for a reason—ferocious, shocking, and technically assured." }
+      }
+    },
+
+    "Supernatural Horror": {
+      Classic: {
+        "Scary": { title: "The Sentinel", year: 1977, country: "USA", note: "Occult NYC nightmare with a last act that still stings." },
+        "Fun": { title: "The Gate", year: 1987, country: "Canada", note: "Kids‑on‑bikes gateway to stop‑motion demons—pure Saturday‑night fun." },
+        "Critically Acclaimed": { title: "Kuroneko", year: 1968, country: "Japan", note: "Haunting, lyrical ghost‑revenge fable—quietly devastating." }
+      },
+      Modern: {
+        "Scary": { title: "Terrified (Aterrados)", year: 2017, country: "Argentina", note: "Relentless set‑pieces; a grab‑bag of nightmare images that work." },
+        "Fun": { title: "Extra Ordinary", year: 2019, country: "Ireland", note: "Sweet, gently bonkers exorcism comedy with real charm." },
+        "Critically Acclaimed": { title: "Under the Shadow", year: 2016, country: "Iran/UK", note: "Political and personal hauntings intertwine—smart and affecting." }
+      }
+    },
+
+    "Psychological Horror": {
+      Classic: {
+        "Scary": { title: "The Tenant", year: 1976, country: "France", note: "Paranoia spirals in a claustrophobic, identity‑shifting nightmare." },
+        "Fun": { title: "The Ninth Configuration", year: 1980, country: "USA", note: "Existential madhouse that toggles between absurdity and dread." },
+        "Critically Acclaimed": { title: "Don't Look Now", year: 1973, country: "UK/Italy", note: "Shattering grief horror—elliptical, elegant, and unforgettable." }
+      },
+      Modern: {
+        "Scary": { title: "The Canal", year: 2014, country: "Ireland", note: "Domestic unraveling with a nasty pulse and great use of film lore." },
+        "Fun": { title: "The Voices", year: 2014, country: "USA", note: "Candy‑colored delusions spiral into pitch‑black hilarity and horror." },
+        "Critically Acclaimed": { title: "The Night House", year: 2020, country: "USA", note: "Elegant metaphysical chills anchored by a powerhouse lead performance." }
+      }
+    }
+  };
+
+  const screen=document.getElementById('screen');
+  const dots=[document.getElementById('d1'),document.getElementById('d2'),document.getElementById('d3'),document.getElementById('d4')];
+  let state={step:1,sub:null,era:null,tone:null};
+  const setDots=()=>{dots.forEach((d,i)=>d.classList.toggle('active',i<state.step));};
+
+  const btn=(label, onClick)=>{const b=document.createElement('button');b.className='btn';b.textContent=label;b.addEventListener('click',onClick,{passive:true});return b;};
+
+  const renderSub=()=>{state.step=1;setDots();screen.innerHTML='';const g=document.createElement('section');g.className='group fade-enter fade-enter-active';const lab=document.createElement('div');lab.className='label';lab.textContent='1. Choose a Subgenre';g.appendChild(lab);const wrap=document.createElement('div');wrap.className='options';Object.keys(DATA).forEach(k=>wrap.appendChild(btn(k,()=>{state.sub=k;renderEra();})));g.appendChild(wrap);screen.appendChild(g)};
+
+  const renderEra=()=>{state.step=2;setDots();screen.innerHTML='';const g=document.createElement('section');g.className='group fade-enter fade-enter-active';const lab=document.createElement('div');lab.className='label';lab.textContent='2. Pick an Era';g.appendChild(lab);const wrap=document.createElement('div');wrap.className='options';wrap.appendChild(btn('Classic (pre‑2000)',()=>{state.era='Classic';renderTone();}));wrap.appendChild(btn('Modern (2000+)',()=>{state.era='Modern';renderTone();}));g.appendChild(wrap);const controls=document.createElement('div');controls.className='controls';const back=document.createElement('button');back.className='pill';back.textContent='‹ Back';back.onclick=renderSub;controls.appendChild(back);g.appendChild(controls);screen.appendChild(g)};
+
+  const renderTone=()=>{state.step=3;setDots();screen.innerHTML='';const g=document.createElement('section');g.className='group fade-enter fade-enter-active';const lab=document.createElement('div');lab.className='label';lab.textContent='3. Choose a Tone';g.appendChild(lab);const wrap=document.createElement('div');wrap.className='options';['Scary','Fun','Critically Acclaimed'].forEach(t=>wrap.appendChild(btn(t,()=>{state.tone=t;renderResult();})));g.appendChild(wrap);const controls=document.createElement('div');controls.className='controls';const back=document.createElement('button');back.className='pill';back.textContent='‹ Back';back.onclick=renderEra;controls.appendChild(back);g.appendChild(controls);screen.appendChild(g)};
+
+  const renderResult=()=>{state.step=4;setDots();screen.innerHTML='';const rec=DATA?.[state.sub]?.[state.era]?.[state.tone];const box=document.createElement('section');box.className='group fade-enter fade-enter-active';const head=document.createElement('div');head.className='label';head.textContent='Your Pick';box.appendChild(head);const card=document.createElement('div');card.className='card';const title=document.createElement('h2');title.className='title';title.textContent=rec?`${rec.title} (${rec.year})`:'No match';const desc=document.createElement('p');desc.textContent=rec?rec.note:'Try another combination.';const meta=document.createElement('div');meta.className='meta';[''+state.sub,''+state.era,''+state.tone, rec?rec.country:''].filter(Boolean).forEach(txt=>{const c=document.createElement('span');c.className='chip';c.textContent=txt;meta.appendChild(c)});card.appendChild(title);card.appendChild(desc);card.appendChild(meta);box.appendChild(card);const controls=document.createElement('div');controls.className='controls';const again=document.createElement('button');again.className='pill primary';again.textContent='Pick Another';again.onclick=()=>{state={step:1,sub:null,era:null,tone:null};renderSub();};const back=document.createElement('button');back.className='pill';back.textContent='‹ Back';back.onclick=renderTone;controls.appendChild(again);controls.appendChild(back);box.appendChild(controls);screen.appendChild(box)};
+
+  renderSub(); setDots();
+  </script>
+</body>
+</html>
